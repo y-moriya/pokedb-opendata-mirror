@@ -1,2 +1,3 @@
 # pokedb-opendata-mirror
-Mirroring pokedb opendata
+
+Mirroring [pokedb](https://sv.pokedb.tokyo/guide/opendata) opendata

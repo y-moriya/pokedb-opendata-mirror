@@ -63,10 +63,10 @@ jobs:
                       print(f"Saved: {filepath}")
                       downloaded_files.append(filename)
                       
-                      # 10秒待機
+                      # 5秒待機
                       if len(downloaded_files) < len([l for l in soup.find_all('a', href=True) if '/opendata/' in l['href']]):
-                          print("Waiting 10 seconds...")
-                          time.sleep(10)
+                          print("Waiting 5 seconds...")
+                          time.sleep(5)
                           
                   except Exception as e:
                       print(f"Error downloading {file_url}: {e}")
