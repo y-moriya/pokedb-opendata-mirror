@@ -34,24 +34,40 @@ jobs:
           import os
           from urllib.parse import urljoin
           
-          # ページからリンクを取得
-          base_url = "https://sv.pokedb.tokyo/guide/opendata"
-          response = requests.get(base_url)
-          soup = BeautifulSoup(response.content, 'html.parser')
+          targets = [
+              {"url": "https://sv.pokedb.tokyo/guide/opendata", "dir": "data/sv"},
+              {"url": "https://champs.pokedb.tokyo/guide/opendata", "dir": "data/champs"}
+          ]
           
-          # data ディレクトリを作成
-          os.makedirs('data', exist_ok=True)
-          
-          # CSV と JSON ファイルのリンクを探す
-          downloaded_files = []
-          
-          for link in soup.find_all('a', href=True):
-              href = link['href']
-              # opendata/ 配下の .csv または .json ファイルを対象
-              if '/opendata/' in href and (href.endswith('.csv') or href.endswith('.json')):
+          for target in targets:
+              base_url = target["url"]
+              target_dir = target["dir"]
+              print(f"\n=== Processing: {base_url} -> {target_dir} ===")
+              
+              try:
+                  response = requests.get(base_url, timeout=30)
+                  response.raise_for_status()
+                  soup = BeautifulSoup(response.content, 'html.parser')
+              except Exception as e:
+                  print(f"Error fetching base URL {base_url}: {e}")
+                  continue
+              
+              # ディレクトリを作成
+              os.makedirs(target_dir, exist_ok=True)
+              
+              # CSV と JSON ファイルのリンクを探す
+              links = []
+              for link in soup.find_all('a', href=True):
+                  href = link['href']
+                  if '/opendata/' in href and (href.endswith('.csv') or href.endswith('.json')):
+                      links.append(href)
+              
+              downloaded_files = []
+              
+              for idx, href in enumerate(links):
                   file_url = urljoin(base_url, href)
                   filename = os.path.basename(href)
-                  filepath = os.path.join('data', filename)
+                  filepath = os.path.join(target_dir, filename)
                   
                   print(f"Downloading: {file_url}")
                   
@@ -66,16 +82,16 @@ jobs:
                       downloaded_files.append(filename)
                       
                       # 5秒待機
-                      if len(downloaded_files) < len([l for l in soup.find_all('a', href=True) if '/opendata/' in l['href']]):
+                      if idx < len(links) - 1:
                           print("Waiting 5 seconds...")
                           time.sleep(5)
                           
                   except Exception as e:
                       print(f"Error downloading {file_url}: {e}")
-          
-          print(f"\nTotal files downloaded: {len(downloaded_files)}")
-          for f in downloaded_files:
-              print(f"  - {f}")
+              
+              print(f"Total files downloaded for {target_dir}: {len(downloaded_files)}")
+              for f in downloaded_files:
+                  print(f"  - {f}")
           EOF
           
       - name: Check for changes
