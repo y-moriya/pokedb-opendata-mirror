@@ -35,7 +35,6 @@ jobs:
           from urllib.parse import urljoin
           
           targets = [
-              {"url": "https://sv.pokedb.tokyo/guide/opendata", "dir": "data/sv"},
               {"url": "https://champs.pokedb.tokyo/guide/opendata", "dir": "data/champs"}
           ]
           
