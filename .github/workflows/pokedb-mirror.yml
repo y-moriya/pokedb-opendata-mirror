@@ -33,10 +33,59 @@ jobs:
           import time
           import os
           from urllib.parse import urljoin
+          import json
+          from datetime import datetime, timezone, timedelta
+          
+          # 古いと判定するしきい値（日数）
+          STABLE_THRESHOLD_DAYS = 14
+          
+          # 週に一度だけダウンロードする曜日 (0:月, 1:火, 2:水, 3:木, 4:金, 5:土, 6:日)
+          WEEKLY_DOWNLOAD_WEEKDAY = 6  # 日曜日
           
           targets = [
               {"url": "https://champs.pokedb.tokyo/guide/opendata", "dir": "data/champs"}
           ]
+          
+          def should_skip_download(filepath, target_dir):
+              filename = os.path.basename(filepath)
+              name_without_ext, _ = os.path.splitext(filename)
+              json_filepath = os.path.join(target_dir, f"{name_without_ext}.json")
+              
+              if not os.path.exists(json_filepath):
+                  # ローカルにJSONファイルが存在しない場合は新規取得するためスキップしない
+                  return False
+                  
+              try:
+                  with open(json_filepath, 'r', encoding='utf-8') as f:
+                      data = json.load(f)
+                      
+                  updated_at_str = data.get('updated_at')
+                  if not updated_at_str:
+                      return False
+                      
+                  # updated_at: "YYYY-MM-DD HH:MM:SS" (JST)
+                  updated_at = datetime.strptime(updated_at_str, "%Y-%m-%d %H:%M:%S")
+                  
+                  # 現在の日本時間 (JST) を取得
+                  # Github Actions環境（通常UTC）に対応するためタイムゾーン調整を行う
+                  jst_timezone = timezone(timedelta(hours=9))
+                  now_jst = datetime.now(timezone.utc).astimezone(jst_timezone)
+                  
+                  # タイムゾーン情報なしのdatetimeに揃えて差分計算
+                  now_naive = now_jst.replace(tzinfo=None)
+                  diff = now_naive - updated_at
+                  
+                  if diff.days > STABLE_THRESHOLD_DAYS:
+                      # 最終更新から一定日数経過している場合、指定曜日以外はダウンロードをスキップ
+                      if now_jst.weekday() != WEEKLY_DOWNLOAD_WEEKDAY:
+                          weekdays_ja = ["月", "火", "水", "木", "金", "土", "日"]
+                          print(f"Skipping {filename}: last updated {diff.days} days ago (threshold: {STABLE_THRESHOLD_DAYS} days), today is {weekdays_ja[now_jst.weekday()]} (weekly update on {weekdays_ja[WEEKLY_DOWNLOAD_WEEKDAY]})")
+                          return True
+                          
+              except Exception as e:
+                  print(f"Error checking update status for {filename}: {e}")
+                  
+              return False
           
           for target in targets:
               base_url = target["url"]
@@ -68,6 +117,9 @@ jobs:
                   filename = os.path.basename(href)
                   filepath = os.path.join(target_dir, filename)
                   
+                  if should_skip_download(filepath, target_dir):
+                      continue
+                      
                   print(f"Downloading: {file_url}")
                   
                   try:
